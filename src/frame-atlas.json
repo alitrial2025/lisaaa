@@ -1,0 +1,27 @@
+{
+  "fps": 15,
+  "columns": 4,
+  "rows": 2,
+  "clips": {
+    "library": {
+      "count": 225,
+      "width": 360,
+      "height": 640
+    },
+    "notes": {
+      "count": 218,
+      "width": 360,
+      "height": 648
+    },
+    "writing": {
+      "count": 522,
+      "width": 360,
+      "height": 648
+    },
+    "friends": {
+      "count": 149,
+      "width": 360,
+      "height": 648
+    }
+  }
+}

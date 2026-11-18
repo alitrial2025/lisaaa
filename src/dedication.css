@@ -1,0 +1,132 @@
+.endpaper {
+  --endpaper-ink: #302721;
+  --endpaper-serif: 'Instrument Serif', Georgia, serif;
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--endpaper-ink);
+  background: radial-gradient(ellipse at 19% 35%, #f9f0d9 0%, transparent 55%), #f3ecdc;
+}
+.endpaper__inside {
+  width: min(calc(100% - 2 * clamp(22px, 6.4vw, 102px)), 1440px);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+}
+.endpaper__spread {
+  flex: 1;
+  min-height: clamp(565px, 90svh, 900px);
+  padding-block: clamp(75px, 11svh, 140px);
+  display: grid;
+  grid-template-columns: 1.16fr 1fr;
+  grid-template-areas: 'album letter';
+  align-items: center;
+  gap: clamp(38px, 7vw, 122px);
+}
+.endpaper__letter { grid-area: letter; position: relative; z-index: 1; }
+.endpaper__kicker, .endpaper__footer {
+  font-family: 'Space Grotesk Variable', Arial, sans-serif;
+  font-size: .68rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.endpaper__kicker { display: flex; align-items: center; gap: 12px; margin: 0 0 19px; }
+.endpaper__kicker::before { content: ''; width: 29px; height: 1px; background: #937044; }
+.endpaper h2 {
+  font-family: var(--endpaper-serif);
+  font-size: clamp(74px, min(8.9vw, 15.8svh), 155px);
+  letter-spacing: -.047em;
+  line-height: .88;
+  font-weight: 400;
+  margin: 0 0 .25em -.03em;
+}
+.endpaper h2 em { color: #85411e; font-weight: 400; }
+.endpaper__message {
+  max-width: 34ch;
+  margin: 0;
+  line-height: 1.6;
+  font-size: clamp(15px, 1.22vw, 20px);
+  color: #564a3e;
+}
+.endpaper__signoff {
+  font-family: var(--endpaper-serif);
+  font-size: clamp(28px, 2.7vw, 42px);
+  line-height: 1.1;
+  font-style: italic;
+  margin: .65em 0 0;
+}
+.endpaper__album {
+  grid-area: album;
+  position: relative;
+  width: 100%;
+  max-width: 670px;
+  aspect-ratio: 1.2;
+  isolation: isolate;
+}
+.endpaper__print {
+  position: absolute;
+  width: 54%;
+  padding: 2% 2% 0;
+  margin: 0;
+  background: #fffaf0;
+  border: 1px solid #58452527;
+  box-shadow: 0 1px 2px #33271922, 2px 10px 18px -8px #49331855;
+  transform-origin: 50% 65%;
+}
+.endpaper__print figcaption {
+  padding: .42em .08em .58em;
+  font: italic clamp(17px, 1.7vw, 30px)/1.1 var(--endpaper-serif);
+  color: #514232;
+}
+.endpaper__photo { position: relative; overflow: hidden; aspect-ratio: .79; }
+.endpaper__photo img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; display: block; }
+.endpaper__print--study { top: 1%; left: 4%; }
+.endpaper__print--study .endpaper__photo { background: radial-gradient(ellipse at 55% 20%, #e3d5ab, #b09a73); }
+.endpaper__print--smile { width: 51%; top: 31%; right: 0; }
+.endpaper__print--smile .endpaper__photo { aspect-ratio: .91; background: radial-gradient(ellipse at 35% 17%, #e1e7da, #a7c0b2); }
+.endpaper__print--smile img { width: 108%; max-width: none; object-fit: cover; object-position: center 12%; }
+.endpaper__footer {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #594b343c;
+  gap: 1rem;
+}
+.endpaper__footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+.endpaper__footer a:hover { text-decoration: underline; text-underline-offset: 5px; }
+.endpaper__footer a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+@media (max-width: 740px) {
+  .endpaper__spread {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'letter' 'album';
+    padding-block: 54px 48px;
+    gap: 34px;
+    min-height: 0;
+  }
+  .endpaper__letter { width: min(100%, 520px); margin-inline: auto; }
+  .endpaper__kicker { margin-bottom: 18px; }
+  .endpaper h2 { font-size: clamp(72px, 15vw, 108px); }
+  .endpaper h2 br { display: none; }
+  .endpaper h2 em::before { content: ' '; }
+  .endpaper__album { width: min(100%, 480px); justify-self: center; }
+  .endpaper__print figcaption { font-size: clamp(18px, 4.1vw, 27px); }
+  .endpaper__footer { min-height: 61px; font-size: .62rem; }
+}
+
+@media (max-width: 440px) {
+  .endpaper h2 br { display: initial; }
+  .endpaper h2 em::before { content: none; }
+}
