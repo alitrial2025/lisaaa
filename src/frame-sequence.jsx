@@ -151,6 +151,7 @@ function NativeFrames({ chapter, frame, ambient, ambientCanvas, onFrame }) {
 
 export const FrameSequence = memo(function FrameSequence({ chapter, visible, playhead, cache, onFrame }) {
   const canvas = useRef(null);
+  const previewCanvas = useRef(null);
   const ambientCanvas = useRef(null);
   const [useSource, setUseSource] = useState(() => cache.usesSource(chapter.id));
   const [nativeFrame, setNativeFrame] = useState(0);
@@ -168,6 +169,8 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
     if (!visible) return;
     const target = canvas.current;
     const context = target?.getContext('2d', { alpha: false, desynchronized: true });
+    const preview = previewCanvas.current;
+    const previewContext = preview?.getContext('2d', { alpha: false, desynchronized: true });
     let active = true;
     let lastPaint = -1;
     let lastFrame = -1;
@@ -180,17 +183,6 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
     let lastPosition = playhead.get();
     let lastUpdate = 0;
 
-    function paint(image, x, y, tileWidth, tileHeight, frame) {
-      const tile = [x, y, tileWidth, tileHeight];
-      context.drawImage(image, ...tile, 0, 0, width, height);
-      drawAmbient(ambientCanvas.current, image, tile);
-      if (lastPaint < 0) target.dataset.ready = '';
-      lastPaint = frame;
-      const quality = renderedOverview ? 'preview' : 'full';
-      if (target.dataset.quality !== quality) target.dataset.quality = quality;
-      onFrame(frame / fps);
-    }
-
     function warm(frame) {
       const lookAhead = frame + direction * 6;
       const next = Math.floor(lookAhead / framesPerSheet);
@@ -199,17 +191,32 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
 
     function drawExact() {
       const tile = lastFrame % framesPerSheet;
+      const crop = [(tile % columns) * width, Math.floor(tile / columns) * height, width, height];
+      context.drawImage(pendingSheet.bitmap, ...crop, 0, 0, width, height);
+      drawAmbient(ambientCanvas.current, pendingSheet.bitmap, crop);
+      if (!target.hasAttribute('data-ready')) target.dataset.ready = '';
+      if (target.dataset.quality !== 'full') target.dataset.quality = 'full';
+      if (renderedOverview) preview.removeAttribute('data-ready');
       renderedOverview = false;
-      paint(pendingSheet.bitmap, (tile % columns) * width, Math.floor(tile / columns) * height, width, height, lastFrame);
+      lastPaint = lastFrame;
+      onFrame(lastFrame / fps);
       warm(lastFrame);
     }
 
     function drawPreview(entry) {
-      if (!active || (!rapid && pendingSheet?.bitmap) || !entry.image.naturalWidth) return;
+      if (!active || !previewContext || (!rapid && pendingSheet?.bitmap) || !entry.image.naturalWidth) return;
       const sample = overviewAt(id, lastFrame);
       if (lastPaint === sample.frame && renderedOverview) return;
+      const crop = [sample.x * overviewWidth, sample.y * sample.height, overviewWidth, sample.height];
+      previewContext.drawImage(entry.image, ...crop, 0, 0, preview.width, preview.height);
+      drawAmbient(ambientCanvas.current, entry.image, crop);
+      if (!renderedOverview) {
+        preview.dataset.ready = '';
+        target.dataset.quality = 'preview';
+      }
       renderedOverview = true;
-      paint(entry.image, sample.x * overviewWidth, sample.y * sample.height, overviewWidth, sample.height, sample.frame);
+      lastPaint = sample.frame;
+      onFrame(sample.frame / fps);
     }
 
     function requestSheet(index) {
@@ -294,7 +301,10 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
           loading={visible ? 'eager' : 'lazy'}
           decoding="async"
         />
-        {!useSource && <canvas ref={canvas} width={width} height={height} />}
+        {!useSource && <>
+          <canvas ref={canvas} width={width} height={height} />
+          <canvas ref={previewCanvas} width={overviewWidth} height={Math.round(overviewWidth * height / width)} />
+        </>}
         {visible && useSource && (
           <NativeFrames chapter={chapter} frame={nativeFrame} ambient ambientCanvas={ambientCanvas} onFrame={onFrame} />
         )}
