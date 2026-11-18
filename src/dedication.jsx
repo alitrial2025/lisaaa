@@ -1,10 +1,27 @@
-import React, { useRef } from 'react';
-import { m, useScroll, useTransform } from 'motion/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { m, useInView, useScroll, useTransform } from 'motion/react';
+import { Celebration } from './celebration.jsx';
 import { PortraitImage } from './portraits.jsx';
 import './dedication.css';
 
 export function Dedication({ reducedMotion }) {
   const section = useRef(null);
+  const signoff = useRef(null);
+  const celebrated = useRef(false);
+  const signoffInView = useInView(signoff, { amount: .7, margin: '0px 0px -30px 0px' });
+  const [confetti, setConfetti] = useState(false);
+  const finishConfetti = useCallback(() => setConfetti(false), []);
+
+  useEffect(() => {
+    if (reducedMotion || !signoffInView || celebrated.current) return;
+    const timer = window.setTimeout(() => {
+      if (!document.hidden) {
+        celebrated.current = true;
+        setConfetti(true);
+      }
+    }, 190);
+    return () => window.clearTimeout(timer);
+  }, [reducedMotion, signoffInView]);
   const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end end'] });
   const rearY = useTransform(scrollYProgress, [0, 1], [54, 0]);
   const frontY = useTransform(scrollYProgress, [0, 1], [94, 0]);
@@ -19,6 +36,7 @@ export function Dedication({ reducedMotion }) {
 
   return (
     <section id="for-lisa" className="endpaper" ref={section} aria-labelledby="dedication-title">
+      {!reducedMotion && confetti && <Celebration kind="confetti" onFinish={finishConfetti} />}
       <div className="endpaper__inside">
         <div className="endpaper__spread">
           <m.div className="endpaper__letter" {...letterMotion}>
@@ -28,7 +46,7 @@ export function Dedication({ reducedMotion }) {
               For the pages you filled, the friends who shared them, and the smile you carried
               through it all. We’re so proud of you.
             </p>
-            <p className="endpaper__signoff">Happy graduation.</p>
+            <p className="endpaper__signoff" ref={signoff}>Happy graduation.</p>
           </m.div>
           <div className="endpaper__album">
             <m.figure

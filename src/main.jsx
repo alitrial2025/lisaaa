@@ -8,6 +8,7 @@ import { mediaPath, timeline, timelineLength } from './chapters.js';
 import { captionsAt, clamp, smoothstep } from './scene-motion.js';
 import { CompanionPrint } from './scene-layers.jsx';
 import { createFrameCache, FrameSequence } from './frame-sequence.jsx';
+import { Celebration } from './celebration.jsx';
 import { ChapterIndex } from './chapter-index.jsx';
 import { Dedication } from './dedication.jsx';
 import { chapterPosition, filmHash, handoff, placeAtScroll, readLocal, readPlace, sceneAt, scrollToPlace, writeLocal } from './film-navigation.js';
@@ -58,7 +59,7 @@ function Masthead({ openIndex }) {
   );
 }
 
-function FilmSurface({ scene, index, visible, playhead, cache }) {
+function FilmSurface({ scene, index, visible, playhead, cache, fireworks, finishFireworks }) {
   const surface = useRef(null);
   const captionRefs = useRef(new Map());
   const lastTime = useRef(0);
@@ -129,6 +130,7 @@ function FilmSurface({ scene, index, visible, playhead, cache }) {
       <FrameSequence chapter={scene} visible={visible} playhead={playhead} cache={cache} onFrame={paint} />
       {visible && <>
         <div className="projector-light" aria-hidden="true" />
+        {fireworks && <Celebration kind="fireworks" onFinish={finishFireworks} />}
         <div className="film-matte" aria-hidden="true">
           <span className="stock-edge stock-edge--one" /><span className="stock-edge stock-edge--two" />
         </div>
@@ -191,10 +193,13 @@ function ScrollFilm({ openIndex }) {
   const { scrollYProgress } = useScroll({ target: section, offset: ['start start', 'end end'] });
   const playhead = useTransform(scrollYProgress, [0, 1], [0, timelineLength]);
   const [cache] = useState(createFrameCache);
+  const [fireworks, setFireworks] = useState(false);
+  const finishFireworks = useCallback(() => setFireworks(false), []);
   const [view, setView] = useState(() => ({ mounts: mountedScenes(0), scene: timeline[0] }));
   const lastView = useRef(view);
 
   useMotionValueEvent(playhead, 'change', (position) => {
+    if (fireworks && position >= .24) finishFireworks();
     const mounts = mountedScenes(position);
     const scene = sceneAt(position);
     if (lastView.current.scene !== scene || lastView.current.mounts !== mounts) {
@@ -207,6 +212,13 @@ function ScrollFilm({ openIndex }) {
     }
   });
 
+  useEffect(() => {
+    if (!['', '#top', '#library'].includes(window.location.hash)) return;
+    const timer = window.setTimeout(() => {
+      if (playhead.get() < .035 && window.scrollY < 35 && !document.hidden) setFireworks(true);
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [playhead]);
   useEffect(() => { if (!inView) cache.clear(); }, [cache, inView]);
   useEffect(() => () => cache.clear(), [cache]);
 
@@ -218,7 +230,8 @@ function ScrollFilm({ openIndex }) {
       <div className="film-stage" data-active={view.scene.id}>
         <div className="screen">
           {inView && timeline.map((scene, i) => view.mounts[i] !== '0' && (
-            <FilmSurface key={scene.id} scene={scene} index={i} visible={view.mounts[i] === '2'} playhead={playhead} cache={cache} />
+            <FilmSurface key={scene.id} scene={scene} index={i} visible={view.mounts[i] === '2'} playhead={playhead} cache={cache}
+              fireworks={i === 0 && fireworks} finishFireworks={finishFireworks} />
           ))}
           <a className="enter-story" href="#opening-scene" ref={enter}>
             <span><Arrow /></span> Scroll to begin
