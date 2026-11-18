@@ -70,39 +70,44 @@ img { display: block; }
   --title-size: clamp(60px, min(9.8cqw, 18.5cqh), 205px);
   --copy-middle: 49%;
   --stock: #2b2720; --hole: #a99d81;
+  --backdrop-focus: 41%; --shade-right: 0;
   --still: url('/media/library.webp');
   position: absolute; inset: 0; isolation: isolate; overflow: hidden;
   color: var(--ink); background: var(--bg);
 }
 .film-surface[hidden] { display: none; }
-.film-surface[data-side='left'] { --film-x: 29.5%; --copy-side: 55%; --film-y: 49.5%; }
+.film-surface[data-side='left'] { --film-x: 29.5%; --copy-side: 55%; --film-y: 49.5%; --shade-right: 1; }
 .film-surface[data-scene='notes'] {
   --bg: #17201e; --halo: #829184; --accent: #e5d7a9; --stock: #2b322f; --hole: #adad94;
-  --still: url('/media/notes.webp');
+  --still: url('/media/notes.webp'); --backdrop-focus: 54%;
 }
 .film-surface[data-scene='writing'] {
   --bg: #302125; --halo: #b36b5a; --accent: #ffc7b4; --stock: #392e2b; --hole: #b69b86;
-  --still: url('/media/writing.webp'); --film-x: 71%; --shot-height: min(84cqh, 67cqw);
+  --still: url('/media/writing.webp'); --backdrop-focus: 43%; --film-x: 71%; --shot-height: min(84cqh, 67cqw);
 }
 .film-surface[data-scene='friends'] {
   --bg: #26231b; --halo: #b09b5b; --accent: #fadc99; --stock: #302e23; --hole: #c1aa8b;
-  --still: url('/media/friends.webp');
+  --still: url('/media/friends.webp'); --backdrop-focus: 45%;
 }
-.film-ambient { position: absolute; z-index: -3; inset: -14%; overflow: hidden; background-size: cover; background-position: center; opacity: .35; }
-.film-ambient canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+.film-ambient {
+  position: absolute; z-index: -3; inset: 0;
+  background: var(--still) center var(--backdrop-focus) / cover no-repeat;
+}
+.film-ambient canvas { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center var(--backdrop-focus); }
 .film-ambient canvas:not([data-ready]) { visibility: hidden; }
 .projector-light {
-  position: absolute; z-index: -2; inset: 0;
+  position: absolute; z-index: -2; inset: 0; pointer-events: none;
   background:
-    radial-gradient(ellipse 50% 76% at 98% 55%, color-mix(in srgb, var(--halo) 44%, transparent), transparent 88%),
-    radial-gradient(ellipse 42% 70% at 66% 82%, #b4743c26, transparent),
-    linear-gradient(90deg, #141410ef 0%, #181712de 25%, #24201870 57%, transparent 85%);
+    radial-gradient(ellipse at 75% 72%, color-mix(in srgb, var(--halo) 14%, transparent), transparent 74%),
+    linear-gradient(0deg, #1514105c, transparent 33%),
+    #1514105d;
 }
-.film-surface[data-side='left'] .projector-light {
-  background:
-    radial-gradient(ellipse 76% 100% at 0% 44%, color-mix(in srgb, var(--halo) 35%, transparent), transparent 80%),
-    linear-gradient(-90deg, color-mix(in srgb, var(--bg) 98%, transparent), color-mix(in srgb, var(--bg) 70%, transparent) 54%, transparent 83%);
+.projector-light::before, .projector-light::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, #12110ed6 0%, #12110eb5 36%, #12110e38 66%, transparent 90%);
+  opacity: calc(1 - var(--shade-right));
 }
+.projector-light::after { transform: scaleX(-1); opacity: var(--shade-right); }
 .film-surface::after {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(0deg, #fff8db05 0px, #fff8db05 1px, transparent 1px, transparent 3px);
@@ -239,10 +244,10 @@ img { display: block; }
     --title-size: clamp(57px, min(16.2cqw, 10.8cqh), 119px);
   }
   .film-surface[data-side='left'] { --film-x: 43%; }
-  .projector-light, .film-surface[data-side='left'] .projector-light { background: radial-gradient(ellipse at 80% 36%, color-mix(in srgb, var(--halo) 40%, transparent), transparent 70%), linear-gradient(0deg, var(--bg), transparent); }
+  .projector-light::before, .projector-light::after { display: none; }
   .film-surface::before {
     content: ''; position: absolute; z-index: 2; inset: 0; pointer-events: none;
-    background: linear-gradient(0deg, var(--bg) 1%, color-mix(in srgb, var(--bg) 92%, transparent) 25%, transparent 52%);
+    background: linear-gradient(0deg, #151410ec 1%, #151410c9 27%, #15141020 49%, transparent 60%);
   }
   .scene-type { top: auto; bottom: clamp(25px, 5.6cqh, 48px); width: calc(100% - 2 * var(--edge)); transform: none; }
   .scene-eyebrow { font-size: 10px; margin-bottom: 12px; }
@@ -291,6 +296,7 @@ img { display: block; }
 .film-surface[data-scene='library'] {
   --cross-distance: -38cqw;
   --cross-print: -74cqw;
+  --shade-right: var(--cross, 0);
   --shot-transform: translate(-50%, -50%)
     translate(calc(var(--shot-drift) + var(--cross-distance) * var(--cross, 0)), calc(var(--shot-rise) + var(--cross-lift, 0px)))
     rotate(calc(var(--shot-tilt) - 12deg * var(--cross, 0)));

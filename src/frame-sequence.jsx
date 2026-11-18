@@ -7,7 +7,7 @@ import { overviewAt, overviewWidth } from './overview.js';
 const { fps, columns, rows, clips } = manifest;
 const framesPerSheet = columns * rows;
 const cacheLimit = 5;
-const ambientWidth = 36;
+const ambientWidth = 150;
 
 export function createFrameCache() {
   const sheets = new Map();
@@ -85,17 +85,14 @@ export function createFrameCache() {
   };
 }
 
-// The atmosphere samples the already decoded frame. Its small backing store keeps
-// each redraw inexpensive even when the ambient image fills a wide viewport.
+// Resample the same decoded frame into a smaller backing store for a soft projection.
 function drawAmbient(canvas, source, tile) {
   if (!canvas) return;
-  const context = canvas.getContext('2d', { alpha: false });
+  const context = canvas.getContext('2d', { alpha: false, desynchronized: true });
   if (!context) return;
-  // Blur the small sample before compositing it across the entire viewport.
-  context.filter = 'blur(1.25px) saturate(.73)';
-  const destination = [-3, -3, canvas.width + 6, canvas.height + 6];
+  const destination = [0, 0, canvas.width, canvas.height];
   context.drawImage(source, ...(tile ? [...tile, ...destination] : destination));
-  canvas.dataset.ready = '';
+  if (!canvas.hasAttribute('data-ready')) canvas.dataset.ready = '';
 }
 
 function NativeFrames({ chapter, frame, ambient, ambientCanvas, onFrame }) {
@@ -309,7 +306,7 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
           <NativeFrames chapter={chapter} frame={nativeFrame} ambient ambientCanvas={ambientCanvas} onFrame={onFrame} />
         )}
       </div>
-      <div className="film-ambient" aria-hidden="true" style={{ backgroundImage: 'url("' + mediaPath(id + '-wash.webp') + '")' }}>
+      <div className="film-ambient" aria-hidden="true">
         <canvas ref={ambientCanvas} width={ambientWidth} height={Math.round(ambientWidth * height / width)} />
       </div>
     </>
