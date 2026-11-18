@@ -1,15 +1,18 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import manifest from './frame-atlas.json';
 import { mediaPath } from './chapters.js';
+import { clamp } from './scene-motion.js';
+import { overviewAt, overviewWidth } from './overview.js';
 
 const { fps, columns, rows, clips } = manifest;
 const framesPerSheet = columns * rows;
-const cacheLimit = 4;
+const cacheLimit = 5;
 const ambientWidth = 36;
 
 export function createFrameCache() {
   const sheets = new Map();
   const sourceClips = new Set();
+  const overviews = new Map();
 
   function release(sheet) {
     sheet.controller.abort();
@@ -56,6 +59,18 @@ export function createFrameCache() {
 
   return {
     get,
+    overview(clip) {
+      if (!overviews.has(clip)) {
+        const image = new Image();
+        const entry = { image };
+        image.decoding = 'async';
+        image.fetchPriority = 'low';
+        image.src = overviewAt(clip, 0).path;
+        entry.ready = image.decode().catch(() => {});
+        overviews.set(clip, entry);
+      }
+      return overviews.get(clip);
+    },
     useSource(clip) {
       sourceClips.add(clip);
     },
@@ -65,17 +80,21 @@ export function createFrameCache() {
     clear() {
       sheets.forEach(release);
       sheets.clear();
+      overviews.clear();
     },
   };
 }
 
 // The atmosphere samples the already decoded frame. Its small backing store keeps
 // each redraw inexpensive even when the ambient image fills a wide viewport.
-function drawAmbient(canvas, source) {
+function drawAmbient(canvas, source, tile) {
   if (!canvas) return;
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return;
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  // Blur the small sample before compositing it across the entire viewport.
+  context.filter = 'blur(1.25px) saturate(.73)';
+  const destination = [-3, -3, canvas.width + 6, canvas.height + 6];
+  context.drawImage(source, ...(tile ? [...tile, ...destination] : destination));
   canvas.dataset.ready = '';
 }
 
@@ -130,94 +149,159 @@ function NativeFrames({ chapter, frame, ambient, ambientCanvas, onFrame }) {
   );
 }
 
-export const FrameSequence = memo(function FrameSequence({ chapter, visible, progress, cache, onFrame, ambient = true }) {
+export const FrameSequence = memo(function FrameSequence({ chapter, visible, playhead, cache, onFrame }) {
   const canvas = useRef(null);
   const ambientCanvas = useRef(null);
-  const previous = useRef(0);
   const [useSource, setUseSource] = useState(() => cache.usesSource(chapter.id));
+  const [nativeFrame, setNativeFrame] = useState(0);
   const { count, width, height } = clips[chapter.id];
-  const frame = Math.round(progress * (count - 1));
-  const sheetIndex = Math.floor(frame / framesPerSheet);
+  const { id, start, length } = chapter;
 
   useEffect(() => {
-    if (!visible && !useSource) cache.get(chapter.id, 0, 'low');
-  }, [cache, chapter.id, useSource, visible]);
+    if (!visible && !useSource) {
+      cache.get(id, 0, 'low');
+      cache.overview(id);
+    }
+  }, [cache, id, useSource, visible]);
 
   useLayoutEffect(() => {
-    if (!visible || useSource) return;
-
-    function switchToSource() {
-      cache.useSource(chapter.id);
-      setUseSource(true);
-    }
-
+    if (!visible) return;
     const target = canvas.current;
-    const context = target.getContext('2d', { alpha: false });
-    if (!context) {
-      switchToSource();
-      return;
-    }
+    const context = target?.getContext('2d', { alpha: false, desynchronized: true });
+    let active = true;
+    let lastPaint = -1;
+    let lastFrame = -1;
+    let wantedSheet = -1;
+    let pendingSheet;
+    let direction = 1;
+    let renderedOverview = false;
+    let rapid = false;
+    let settleTimer;
+    let lastPosition = playhead.get();
+    let lastUpdate = 0;
 
-    let cancelled = false;
-    const direction = frame < previous.current ? -1 : 1;
-    previous.current = frame;
-    const adjacent = sheetIndex + direction;
-
-    function draw(bitmap) {
-      const tile = frame % framesPerSheet;
-      const x = (tile % columns) * width;
-      const y = Math.floor(tile / columns) * height;
-      context.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
-      target.dataset.ready = '';
-      drawAmbient(ambientCanvas.current, target);
+    function paint(image, x, y, tileWidth, tileHeight, frame) {
+      const tile = [x, y, tileWidth, tileHeight];
+      context.drawImage(image, ...tile, 0, 0, width, height);
+      drawAmbient(ambientCanvas.current, image, tile);
+      if (lastPaint < 0) target.dataset.ready = '';
+      lastPaint = frame;
+      const quality = renderedOverview ? 'preview' : 'full';
+      if (target.dataset.quality !== quality) target.dataset.quality = quality;
       onFrame(frame / fps);
-      if (adjacent >= 0 && adjacent * framesPerSheet < count) cache.get(chapter.id, adjacent, 'low');
     }
 
-    function requestFrame() {
-      const sheet = cache.get(chapter.id, sheetIndex, 'high');
-      if (sheet.bitmap) {
-        draw(sheet.bitmap);
-        return;
-      }
+    function warm(frame) {
+      const lookAhead = frame + direction * 6;
+      const next = Math.floor(lookAhead / framesPerSheet);
+      if (lookAhead >= 0 && lookAhead < count && next !== wantedSheet) cache.get(id, next, 'low');
+    }
+
+    function drawExact() {
+      const tile = lastFrame % framesPerSheet;
+      renderedOverview = false;
+      paint(pendingSheet.bitmap, (tile % columns) * width, Math.floor(tile / columns) * height, width, height, lastFrame);
+      warm(lastFrame);
+    }
+
+    function drawPreview(entry) {
+      if (!active || (!rapid && pendingSheet?.bitmap) || !entry.image.naturalWidth) return;
+      const sample = overviewAt(id, lastFrame);
+      if (lastPaint === sample.frame && renderedOverview) return;
+      renderedOverview = true;
+      paint(entry.image, sample.x * overviewWidth, sample.y * sample.height, overviewWidth, sample.height, sample.frame);
+    }
+
+    function requestSheet(index) {
+      const sheet = cache.get(id, index, 'high');
+      pendingSheet = sheet;
+      wantedSheet = index;
+      if (sheet.bitmap) return;
       sheet.pending.then((bitmap) => {
-        if (cancelled) return;
-        if (bitmap) draw(bitmap);
-        else if (sheet.controller.signal.aborted) requestFrame();
-        else switchToSource();
+        if (!active || pendingSheet !== sheet) return;
+        if (bitmap) {
+          if (!rapid) drawExact();
+        }
+        else if (sheet.controller.signal.aborted) requestSheet(index);
+        else {
+          cache.useSource(id);
+          setUseSource(true);
+        }
       });
     }
 
-    requestFrame();
-    return () => { cancelled = true; };
-  }, [ambient, cache, chapter.id, count, frame, height, onFrame, sheetIndex, useSource, visible, width]);
+    function settle() {
+      rapid = false;
+      const index = Math.floor(lastFrame / framesPerSheet);
+      if (index !== wantedSheet) requestSheet(index);
+      if (pendingSheet.bitmap) drawExact();
+      else if (Math.abs(lastFrame - lastPaint) >= 5) {
+        const entry = cache.overview(id);
+        if (entry.image.complete) drawPreview(entry);
+      }
+    }
+
+    function update(position) {
+      const now = performance.now();
+      const elapsed = now - lastUpdate;
+      const fast = lastUpdate > 0 && elapsed < 160
+        && Math.abs(position - lastPosition) / Math.max(10, elapsed) > (elapsed > 26 ? .00085 : .0012);
+      lastPosition = position;
+      lastUpdate = now;
+      const frame = Math.round(clamp((position - start) / length) * (count - 1));
+      if (frame === lastFrame) return;
+      if (useSource) {
+        lastFrame = frame;
+        setNativeFrame(frame);
+        return;
+      }
+      direction = frame < lastFrame ? -1 : 1;
+      lastFrame = frame;
+      clearTimeout(settleTimer);
+      const overview = cache.overview(id);
+      if ((fast || (rapid && elapsed < 100)) && overview.image.complete && overview.image.naturalWidth) {
+        rapid = true;
+        drawPreview(overview);
+        settleTimer = setTimeout(settle, 85);
+      } else {
+        settle();
+      }
+    }
+
+    if (!useSource && !context) {
+      cache.useSource(id);
+      setUseSource(true);
+      return;
+    }
+    if (!useSource) {
+      const overview = cache.overview(id);
+      overview.ready.then(() => { if (lastFrame >= 5 && Math.abs(lastFrame - lastPaint) >= 5) drawPreview(overview); });
+    }
+    update(playhead.get());
+    const unsubscribe = playhead.on('change', update);
+    return () => { active = false; clearTimeout(settleTimer); unsubscribe(); };
+  }, [cache, count, height, id, length, onFrame, playhead, start, useSource, visible, width]);
 
   return (
     <>
       <div className="film-backdrop" aria-hidden="true">
         <img
-          src={mediaPath(`${chapter.id}.webp`)}
+          src={mediaPath(id + '.webp')}
           alt=""
           width={width}
           height={height}
-          fetchPriority={chapter.id === 'library' ? 'high' : 'auto'}
+          fetchPriority={id === 'library' ? 'high' : 'auto'}
           loading={visible ? 'eager' : 'lazy'}
           decoding="async"
         />
         {!useSource && <canvas ref={canvas} width={width} height={height} />}
         {visible && useSource && (
-          <NativeFrames chapter={chapter} frame={frame} ambient={ambient} ambientCanvas={ambientCanvas} onFrame={onFrame} />
+          <NativeFrames chapter={chapter} frame={nativeFrame} ambient ambientCanvas={ambientCanvas} onFrame={onFrame} />
         )}
       </div>
-      {ambient && (
-        <div
-          className="film-ambient"
-          aria-hidden="true"
-          style={{ backgroundImage: `url("${mediaPath(`${chapter.id}-wash.webp`)}")` }}
-        >
-          <canvas ref={ambientCanvas} width={ambientWidth} height={Math.round(ambientWidth * height / width)} />
-        </div>
-      )}
+      <div className="film-ambient" aria-hidden="true" style={{ backgroundImage: 'url("' + mediaPath(id + '-wash.webp') + '")' }}>
+        <canvas ref={ambientCanvas} width={ambientWidth} height={Math.round(ambientWidth * height / width)} />
+      </div>
     </>
   );
 });

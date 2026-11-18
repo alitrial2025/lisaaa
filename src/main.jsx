@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LazyMotion, domAnimation, useInView, useMotionValueEvent, useScroll } from 'motion/react';
+import { LazyMotion, domAnimation, useInView, useMotionValueEvent, useScroll, useTransform } from 'motion/react';
 import '@fontsource-variable/space-grotesk';
 import '@fontsource/instrument-serif/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
@@ -10,7 +10,10 @@ import { CompanionPrint } from './scene-layers.jsx';
 import { createFrameCache, FrameSequence } from './frame-sequence.jsx';
 import { ChapterIndex } from './chapter-index.jsx';
 import { Dedication } from './dedication.jsx';
+import { chapterPosition, filmHash, handoff, placeAtScroll, readLocal, readPlace, sceneAt, scrollToPlace, writeLocal } from './film-navigation.js';
 import './styles.css';
+
+const Keepsakes = lazy(() => import('./keepsakes.jsx'));
 
 const motionQuery = '(prefers-reduced-motion: reduce)';
 const subscribeMotion = (update) => {
@@ -55,25 +58,75 @@ function Masthead({ openIndex }) {
   );
 }
 
-function FilmSurface({ scene, index, visible, progress, arrival, exit, cache, opening }) {
-  const [time, setTime] = useState(0);
-  const pose = time / scene.duration;
+function FilmSurface({ scene, index, visible, playhead, cache }) {
+  const surface = useRef(null);
+  const captionRefs = useRef(new Map());
+  const lastTime = useRef(0);
+  const previousCaptions = useRef([]);
+  const previousArrival = useRef(-1);
+  const previousExit = useRef(-1);
+  const previousPoseTime = useRef(-1);
   const side = index % 2 === 0 ? 1 : -1;
-  const captions = captionsAt(scene.captions, time);
+
+  const updatePoses = useCallback((position, time) => {
+    const style = surface.current?.style;
+    if (!style || !visible) return;
+    const arrival = index === 0 ? 1 : smoothstep((position - scene.start + handoff) / (2 * handoff));
+    const exit = index === timeline.length - 1 ? 0 : smoothstep((position - scene.end + handoff) / (2 * handoff));
+    const arrivalChanged = arrival !== previousArrival.current;
+    if (arrivalChanged) {
+      style.clipPath = arrival === 1 ? 'none' : 'polygon(calc(' + (118 * (1 - arrival)) + '% - 18%) 0, 100% 0, 100% 100%, ' + (118 * (1 - arrival)) + '% 100%)';
+    }
+    if (arrivalChanged || exit !== previousExit.current) {
+      style.setProperty('--copy-opacity', smoothstep((arrival - .52) / .48) * (1 - smoothstep(exit / .62)));
+      previousArrival.current = arrival;
+      previousExit.current = exit;
+    }
+    if (!arrivalChanged && time === previousPoseTime.current) return;
+    previousPoseTime.current = time;
+    const pose = time / scene.duration;
+    if (index === 0) {
+      const firstCross = smoothstep((time - 5.45) / 1.2);
+      const secondCross = smoothstep((time - 10.85) / 1.2);
+      const cross = firstCross - secondCross;
+      style.setProperty('--cross', cross);
+      style.setProperty('--cross-lift', Math.sin(cross * Math.PI) * -21 + 'px');
+    }
+    style.setProperty('--shot-tilt', (side * (5.5 - 8.5 * pose) + side * (1 - arrival) * 7) + 'deg');
+    style.setProperty('--shot-drift', (side * (-20 * pose + (1 - arrival) * 60)) + 'px');
+    style.setProperty('--shot-rise', (pose * -12 + (1 - arrival) * 38) + 'px');
+    style.setProperty('--print-rise', (-33 * pose + (1 - arrival) * 65) + 'px');
+    style.setProperty('--print-tilt', (side * (-10 + 6 * pose)) + 'deg');
+  }, [index, scene, side, visible]);
+
+  const paint = useCallback((time) => {
+    lastTime.current = time;
+    updatePoses(playhead.get(), time);
+    const captions = captionsAt(scene.captions, time);
+    for (const old of previousCaptions.current) {
+      if (!captions.some(({ cue }) => cue.at === old.at)) captionRefs.current.get(old.at)?.removeAttribute('data-visible');
+    }
+    for (const { cue, alpha, offset } of captions) {
+      const element = captionRefs.current.get(cue.at);
+      if (!element) continue;
+      element.dataset.visible = '';
+      element.style.opacity = alpha;
+      element.style.setProperty('--cue-offset', (offset * 45) + '%');
+    }
+    previousCaptions.current = captions.map(({ cue }) => cue);
+  }, [playhead, scene, updatePoses]);
+
+  useLayoutEffect(() => {
+    if (visible) paint(lastTime.current);
+  }, [paint, visible]);
+  useMotionValueEvent(playhead, 'change', (position) => {
+    if (position <= scene.start + handoff || position >= scene.end - handoff) updatePoses(position, lastTime.current);
+  });
+
   return (
-    <div className="film-surface" hidden={!visible} data-scene={scene.id} data-side={side === 1 ? 'right' : 'left'}
-      style={{
-        '--ratio': scene.ratio,
-        '--shot-tilt': (side * (5.5 - 8.5 * pose) + side * (1 - arrival) * 7) + 'deg',
-        '--shot-drift': (side * (-20 * pose + (1 - arrival) * 60)) + 'px',
-        '--shot-rise': (pose * -12 + (1 - arrival) * 38) + 'px',
-        '--print-rise': (-33 * pose + (1 - arrival) * 65) + 'px',
-        '--print-tilt': (side * (-10 + 6 * pose)) + 'deg',
-        '--surface-inset': (118 * (1 - arrival)) + '%',
-        '--copy-opacity': smoothstep((arrival - .52) / .48) * (1 - smoothstep(exit / .62)),
-      }}
-    >
-      <FrameSequence chapter={scene} visible={visible} progress={progress} cache={cache} onFrame={setTime} />
+    <div ref={surface} className="film-surface" hidden={!visible} data-scene={scene.id}
+      data-side={side === 1 ? 'right' : 'left'} style={{ '--ratio': scene.ratio }}>
+      <FrameSequence chapter={scene} visible={visible} playhead={playhead} cache={cache} onFrame={paint} />
       {visible && <>
         <div className="projector-light" aria-hidden="true" />
         <div className="film-matte" aria-hidden="true">
@@ -83,15 +136,18 @@ function FilmSurface({ scene, index, visible, progress, arrival, exit, cache, op
         <div className="scene-type" aria-hidden="true">
           <div className="scene-eyebrow"><span />{index === 0 ? 'A graduation film' : 'Chapter ' + number(index) + ' / ' + scene.label}</div>
           <div className="caption-stack">
-            {captions.map(({ cue, alpha, offset }) => (
-              <div key={cue.at} className="scene-caption" style={{ opacity: alpha, '--cue-offset': (offset * 45) + '%' }}>
+            {scene.captions.map((cue, cueIndex) => (
+              <div key={cue.at} ref={element => {
+                if (element) captionRefs.current.set(cue.at, element);
+                else captionRefs.current.delete(cue.at);
+              }} className="scene-caption" data-crossed={index === 0 && cueIndex === 1 ? '' : undefined}>
                 <div className="title-line"><span>{cue.title}</span></div>
                 <div className="title-line title-line--accent"><em>{cue.emphasis}</em></div>
                 <p className="caption-detail">{cue.detail}</p>
               </div>
             ))}
           </div>
-          {opening && <span className="enter-placeholder" />}
+          {index === 0 && <span className="enter-placeholder" />}
         </div>
       </>}
     </div>
@@ -121,43 +177,58 @@ function StageFooter({ index, openIndex }) {
   );
 }
 
+function mountedScenes(position) {
+  return timeline.map(scene => {
+    if (position < scene.start - .25 || position > scene.end + handoff) return '0';
+    return position < scene.start - handoff ? '1' : '2';
+  }).join('');
+}
+
 function ScrollFilm({ openIndex }) {
   const section = useRef(null);
+  const enter = useRef(null);
   const inView = useInView(section, { initial: true, margin: '-2px 0px 120px' });
   const { scrollYProgress } = useScroll({ target: section, offset: ['start start', 'end end'] });
-  const [position, setPosition] = useState(0);
-  useMotionValueEvent(scrollYProgress, 'change', (value) => setPosition(value * timelineLength));
+  const playhead = useTransform(scrollYProgress, [0, 1], [0, timelineLength]);
   const [cache] = useState(createFrameCache);
-  const index = Math.max(0, timeline.findLastIndex((scene) => position >= scene.start));
-  const handoff = 0.14;
+  const [view, setView] = useState(() => ({ mounts: mountedScenes(0), scene: timeline[0] }));
+  const lastView = useRef(view);
+
+  useMotionValueEvent(playhead, 'change', (position) => {
+    const mounts = mountedScenes(position);
+    const scene = sceneAt(position);
+    if (lastView.current.scene !== scene || lastView.current.mounts !== mounts) {
+      lastView.current = { mounts, scene };
+      setView(lastView.current);
+    }
+    if (enter.current && (position < .45 || !enter.current.hidden)) {
+      enter.current.hidden = position >= .45;
+      enter.current.style.opacity = 1 - smoothstep((position - .1) / .35);
+    }
+  });
 
   useEffect(() => { if (!inView) cache.clear(); }, [cache, inView]);
   useEffect(() => () => cache.clear(), [cache]);
 
-  const opening = position < .45;
-  const nextBeat = timeline[0].length * 7 / timeline[0].duration;
+  const index = timeline.indexOf(view.scene);
+  const nextBeat = chapterPosition(timeline[0], 7);
   return (
     <section id="top" className="film" ref={section} aria-labelledby="film-title">
       <h1 className="sr-only" id="film-title">Becoming Lisa. A graduation film, Class of 2026.</h1>
-      <div className="film-stage" data-active={timeline[index].id}>
+      <div className="film-stage" data-active={view.scene.id}>
         <div className="screen">
-          {inView && timeline.map((scene, i) => {
-            if (position < scene.start - .23 || position > scene.end + handoff) return null;
-            const visible = position >= scene.start - handoff;
-            const arrival = i === 0 ? 1 : smoothstep((position - scene.start + handoff) / (2 * handoff));
-            const exit = i === timeline.length - 1 ? 0 : smoothstep((position - scene.end + handoff) / (2 * handoff));
-            return <FilmSurface key={scene.id} scene={scene} index={i} visible={visible} opening={i === 0}
-              progress={clamp((position - scene.start) / scene.length)} arrival={arrival} exit={exit} cache={cache} />;
-          })}
-          {opening && <a className="enter-story" href="#opening-scene" style={{ opacity: 1 - smoothstep((position - .1) / .35) }}>
+          {inView && timeline.map((scene, i) => view.mounts[i] !== '0' && (
+            <FilmSurface key={scene.id} scene={scene} index={i} visible={view.mounts[i] === '2'} playhead={playhead} cache={cache} />
+          ))}
+          <a className="enter-story" href="#opening-scene" ref={enter}>
             <span><Arrow /></span> Scroll to begin
-          </a>}
+          </a>
         </div>
         <Masthead openIndex={openIndex} />
         <StageFooter index={index} openIndex={openIndex} />
       </div>
       <div className="story-anchors" aria-hidden="true">
-        {timeline.map((scene, i) => <span key={scene.id} id={scene.id} style={{ top: ((scene.start + (i === 0 ? 0 : handoff + .012)) / timelineLength * 100) + '%' }} />)}
+        {timeline.map(scene => <span key={scene.id} id={scene.id} style={{ top: (chapterPosition(scene) / timelineLength * 100) + '%' }} />)}
         <span id="opening-scene" style={{ top: (nextBeat / timelineLength * 100) + '%' }} />
       </div>
       <StoryOutline />
@@ -177,33 +248,111 @@ function StaticFilm({ openIndex }) {
           <CompanionPrint name={scene.companion} />
         </div>
         <p className="scene-eyebrow"><span />Chapter {number(index)}</p>
-        <h2>{scene.label}</h2><p>{scene.captions[0].detail}</p>
+        <h2>{scene.label}</h2>
+        <p>{scene.description}</p>
+        <ul className="static-captions">{scene.captions.map(cue => (
+          <li key={cue.at}><strong>{cue.title} {cue.emphasis}</strong><span>{cue.detail}</span></li>
+        ))}</ul>
       </article>)}</div>
+    </section>
+  );
+}
+
+function KeepsakeSection({ go }) {
+  const section = useRef(null);
+  const near = useInView(section, { margin: '400px 0px', once: true });
+  return (
+    <section id="keepsakes" ref={section} className="keepsakes" aria-labelledby="keepsake-title">
+      <div className="keepsake-heading">
+        <h2 id="keepsake-title">The keepsakes.</h2>
+        <p>Photos, favorite frames, and a postcard for Lisa.</p>
+      </div>
+      {near && <Suspense fallback={<p className="keepsake-loading" role="status">Opening the keepsakes…</p>}>
+        <Keepsakes go={go} />
+      </Suspense>}
     </section>
   );
 }
 
 function App() {
   const reducedMotion = useSyncExternalStore(subscribeMotion, prefersReducedMotion);
+  const [readMode, setReadMode] = useState(() => readLocal('reading') === 'yes');
   const [indexOpen, setIndexOpen] = useState(false);
-  const selectChapter = useCallback((id) => {
-    const anchor = document.getElementById(id);
-    if (anchor) {
-      if (window.location.hash !== '#' + id) window.history.pushState(null, '', '#' + id);
-      anchor.scrollIntoView({ behavior: 'instant', block: 'start' });
-    }
+  const [bookmark, setBookmark] = useState(() => readPlace(readLocal('bookmark') ?? ''));
+  const [position, setPosition] = useState(null);
+  const staticFilm = reducedMotion || readMode;
+
+  const go = useCallback((place) => {
+    const hash = filmHash(place);
+    if (window.location.hash !== hash) window.history.pushState(null, '', hash);
+    requestAnimationFrame(() => scrollToPlace(place));
   }, []);
+  const openIndex = useCallback(() => {
+    setPosition(placeAtScroll());
+    setIndexOpen(true);
+  }, []);
+  const closeIndex = useCallback(() => setIndexOpen(false), []);
+  const toggleReading = () => {
+    const place = position ?? placeAtScroll();
+    const linkedPlace = readPlace(window.location.hash);
+    if (place) {
+      const target = staticFilm && linkedPlace?.id === place.id ? linkedPlace : place;
+      window.history.replaceState(null, '', filmHash(target));
+    }
+    writeLocal('reading', staticFilm ? null : 'yes');
+    setReadMode(!staticFilm);
+    closeIndex();
+  };
+  const savePlace = () => {
+    if (!position || !writeLocal('bookmark', filmHash(position))) return false;
+    setBookmark(position);
+    return true;
+  };
+
   useEffect(() => {
-    const id = window.location.hash.slice(1);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'instant' });
-  }, [reducedMotion]);
+    function restore() {
+      const hash = window.location.hash;
+      const place = readPlace(hash);
+      if (place) {
+        scrollToPlace(place);
+      } else if (hash) {
+        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'instant' });
+      }
+    }
+    restore();
+    function restoreMoment() {
+      const place = readPlace(window.location.hash);
+      if (place?.time !== undefined) requestAnimationFrame(() => scrollToPlace(place));
+    }
+    window.addEventListener('popstate', restoreMoment);
+    return () => window.removeEventListener('popstate', restoreMoment);
+  }, [staticFilm]);
+
+  useEffect(() => {
+    if (indexOpen) return;
+    function chapterKeys(event) {
+      if (event.defaultPrevented || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey
+        || event.target.closest?.('input, textarea, select, [contenteditable], dialog')) return;
+      const direction = event.key === '[' ? -1 : event.key === ']' ? 1 : 0;
+      const stage = document.querySelector('.film-stage');
+      if (!direction || !stage || stage.getBoundingClientRect().top < -5) return;
+      const index = timeline.findIndex(scene => scene.id === stage.dataset.active);
+      const next = timeline[index + direction];
+      if (next) { event.preventDefault(); go({ id: next.id }); }
+    }
+    document.addEventListener('keydown', chapterKeys);
+    return () => document.removeEventListener('keydown', chapterKeys);
+  }, [go, indexOpen]);
+
   return (
     <LazyMotion features={domAnimation} strict>
       <main>
-        {reducedMotion ? <StaticFilm openIndex={() => setIndexOpen(true)} /> : <ScrollFilm openIndex={() => setIndexOpen(true)} />}
-        <Dedication reducedMotion={reducedMotion} />
+        {staticFilm ? <StaticFilm openIndex={openIndex} /> : <ScrollFilm openIndex={openIndex} />}
+        <Dedication reducedMotion={staticFilm} />
+        <KeepsakeSection go={go} />
       </main>
-      <ChapterIndex open={indexOpen} onClose={() => setIndexOpen(false)} onSelect={selectChapter} />
+      <ChapterIndex open={indexOpen} onClose={closeIndex} onSelect={go} position={position}
+        bookmark={bookmark} savePlace={savePlace} reading={staticFilm} onReading={reducedMotion ? null : toggleReading} />
     </LazyMotion>
   );
 }

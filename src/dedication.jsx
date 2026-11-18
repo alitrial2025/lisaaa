@@ -52,7 +52,7 @@ export function Dedication({ reducedMotion }) {
           </div>
         </div>
         <footer className="endpaper__footer">
-          <span>Class of 2026</span>
+          <a href="#keepsakes">Explore the keepsakes <span aria-hidden="true">↓</span></a>
           <a href="#top">
             Back to the opening
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none">
