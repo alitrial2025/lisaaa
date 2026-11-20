@@ -5,6 +5,7 @@ import '@fontsource-variable/space-grotesk';
 import '@fontsource/instrument-serif/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import { mediaPath, timeline, timelineLength } from './chapters.js';
+import { graduationPhotos } from './graduation-photos.js';
 import { captionsAt, clamp, smoothstep } from './scene-motion.js';
 import { CompanionPrint } from './scene-layers.jsx';
 import { createFrameCache, FrameSequence } from './frame-sequence.jsx';
@@ -53,7 +54,10 @@ function Masthead({ openIndex }) {
         <button className="index-trigger" type="button" onClick={openIndex} aria-haspopup="dialog" aria-controls="chapter-index">
           <span className="grid-icon" aria-hidden="true" /> Chapters
         </button>
-        <a className="letter-link" href="#for-lisa">For Lisa <Arrow direction="diagonal" /></a>
+        <a className="letter-link" href="#for-lisa">
+          <img className="letter-photo" src={mediaPath(graduationPhotos[0].thumbnail)} alt="" width="24" height="30" />
+          For Lisa <Arrow direction="diagonal" />
+        </a>
       </nav>
     </header>
   );
@@ -86,6 +90,9 @@ function FilmSurface({ scene, index, visible, playhead, cache, fireworks, finish
     if (!arrivalChanged && time === previousPoseTime.current) return;
     previousPoseTime.current = time;
     const pose = time / scene.duration;
+    if (scene.printAt !== undefined) {
+      style.setProperty('--print-reveal', smoothstep((time - scene.printAt) / 1.15));
+    }
     if (index === 0) {
       const firstCross = smoothstep((time - 5.45) / 1.2);
       const secondCross = smoothstep((time - 10.85) / 1.2);
@@ -167,13 +174,32 @@ function StoryOutline() {
   );
 }
 
-function StageFooter({ index, openIndex }) {
+function StageFooter({ index, openIndex, go, playhead }) {
+  const progress = useRef(null);
+  useMotionValueEvent(playhead, 'change', position => {
+    const scene = sceneAt(position);
+    progress.current?.style.setProperty('--chapter-progress', clamp((position - scene.start) / scene.length));
+  });
   return (
-    <div className="stage-footer">
+    <div className="stage-footer" ref={progress}>
       <button type="button" className="now-in-frame" onClick={openIndex} aria-label={'View chapters. Current chapter ' + (index + 1) + ', ' + timeline[index].label}>
         <span className="chapter-bars" aria-hidden="true">{timeline.map((scene, i) => <i key={scene.id} className={i === index ? 'active' : ''} />)}</span>
         <span className="chapter-count">{number(index)} <i>/</i> 04</span><span className="foot-separator" /><span className="chapter-name">{timeline[index].label}</span>
       </button>
+      <nav className="chapter-strip" aria-label="Jump to a film chapter">
+        {timeline.map((scene, i) => (
+          <a key={scene.id} href={'#' + scene.id} aria-label={'Jump to ' + scene.label}
+            aria-current={index === i ? 'step' : undefined}
+            style={{ '--still-position': i / (timeline.length - 1) * 100 + '%' }}
+            onClick={event => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              go({ id: scene.id });
+            }}>
+            <span className="strip-still" aria-hidden="true" /><span className="strip-name">{scene.label}</span>
+          </a>
+        ))}
+      </nav>
       <span className="class-year">Class of 2026<span className="year-cross" aria-hidden="true">✳</span></span>
     </div>
   );
@@ -186,7 +212,7 @@ function mountedScenes(position) {
   }).join('');
 }
 
-function ScrollFilm({ openIndex }) {
+function ScrollFilm({ openIndex, go }) {
   const section = useRef(null);
   const enter = useRef(null);
   const inView = useInView(section, { initial: true, margin: '-2px 0px 120px' });
@@ -238,7 +264,7 @@ function ScrollFilm({ openIndex }) {
           </a>
         </div>
         <Masthead openIndex={openIndex} />
-        <StageFooter index={index} openIndex={openIndex} />
+        <StageFooter index={index} openIndex={openIndex} go={go} playhead={playhead} />
       </div>
       <div className="story-anchors" aria-hidden="true">
         {timeline.map(scene => <span key={scene.id} id={scene.id} style={{ top: (chapterPosition(scene) / timelineLength * 100) + '%' }} />)}
@@ -360,7 +386,7 @@ function App() {
   return (
     <LazyMotion features={domAnimation} strict>
       <main>
-        {staticFilm ? <StaticFilm openIndex={openIndex} /> : <ScrollFilm openIndex={openIndex} />}
+        {staticFilm ? <StaticFilm openIndex={openIndex} /> : <ScrollFilm openIndex={openIndex} go={go} />}
         <Dedication reducedMotion={staticFilm} />
         <KeepsakeSection go={go} />
       </main>

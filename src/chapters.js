@@ -20,7 +20,7 @@ const chapters = [
     ],
   },
   {
-    id: 'writing', label: 'The work',
+    id: 'writing', label: 'The work', companion: 'graduation', printAt: 27.4,
     description: 'Lisa works through her notes with a red pen and lifts the sheets she has filled.',
     duration: 34.82, length: 2.35, ratio: 5 / 9,
     captions: [
@@ -31,7 +31,7 @@ const chapters = [
     ],
   },
   {
-    id: 'friends', label: 'Together',
+    id: 'friends', label: 'Together', companion: 'hand-in-hand', printAt: 3.65,
     description: 'Friends reach into a circle, then slips of paper fall to the pavement between them.',
     duration: 9.92, length: 1.15, ratio: 5 / 9,
     captions: [

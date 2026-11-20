@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { mediaPath, timeline } from './chapters.js';
+import { graduationPhotos } from './graduation-photos.js';
 import './chapter-index.css';
 
 import { filmHash } from './film-navigation.js';
@@ -44,7 +45,7 @@ function ShareMoment({ position }) {
   );
 }
 
-function ChapterTools({ position, bookmark, savePlace, reading, onReading, choose, onClose }) {
+function ChapterTools({ position, bookmark, savePlace, reading, onReading, choose, visitSection }) {
   const [status, setStatus] = useState('');
   return (
     <>
@@ -53,14 +54,7 @@ function ChapterTools({ position, bookmark, savePlace, reading, onReading, choos
         {position && !reading && <button type="button" onClick={() => setStatus(savePlace() ? 'Place saved on this device.' : 'This device could not save your place.')}>Save my place</button>}
         {bookmark && <button type="button" onClick={() => choose(bookmark)}>Return to saved place</button>}
         {onReading && <button type="button" onClick={onReading}>{reading ? 'Return to scroll view' : 'Read the story'}</button>}
-        <a href="#keepsakes" onClick={event => {
-          event.preventDefault();
-          onClose();
-          requestAnimationFrame(() => {
-            if (location.hash !== '#keepsakes') history.pushState(null, '', '#keepsakes');
-            document.getElementById('keepsakes')?.scrollIntoView({ behavior: 'instant' });
-          });
-        }}>Keepsakes ↗</a>
+        <a href="#keepsakes" onClick={visitSection}>Keepsakes ↗</a>
       </div>
       <div className="chapter-tools__foot">
         {!reading && <span>Previous chapter <kbd>[</kbd> &nbsp; Next chapter <kbd>]</kbd></span>}
@@ -88,6 +82,20 @@ export function ChapterIndex({ open, onClose, onSelect, position, bookmark, save
   }, [open]);
 
   const choose = place => { onClose(); onSelect(place); };
+  function visitSection(event) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const hash = event.currentTarget.hash;
+    onClose();
+    requestAnimationFrame(() => {
+      if (location.hash !== hash) history.pushState(null, '', hash);
+      const section = document.getElementById(hash.slice(1));
+      section?.scrollIntoView({ behavior: 'instant' });
+      const title = section?.querySelector('h2');
+      title?.setAttribute('tabindex', '-1');
+      title?.focus({ preventScroll: true });
+    });
+  }
 
   return createPortal(
     <dialog
@@ -108,30 +116,40 @@ export function ChapterIndex({ open, onClose, onSelect, position, bookmark, save
               </svg>
             </button>
           </header>
-          <ol className="chapter-index__frames">
-            {timeline.map(({ id, label }, index) => (
-              <li key={id}>
-                <button
-                  className="chapter-index__frame"
-                  type="button"
-                  onClick={() => choose({ id })}
-                >
-                  <span className="chapter-index__still">
-                    <img src={mediaPath(id + '.webp')} alt="" decoding="async" />
-                  </span>
-                  <span className="chapter-index__caption">
-                    <span className="chapter-index__number" aria-hidden="true">0{index + 1}</span>
-                    <span className="chapter-index__name">{label}</span>
-                    <svg className="chapter-index__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M3 13 13 3M4 3h9v9" stroke="currentColor" strokeWidth="1.3" />
-                    </svg>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          <div className="chapter-index__contents">
+            <ol className="chapter-index__frames">
+              {timeline.map(({ id, label }, index) => (
+                <li key={id}>
+                  <button
+                    className="chapter-index__frame"
+                    type="button"
+                    aria-current={position?.id === id ? 'step' : undefined}
+                    onClick={() => choose({ id })}
+                  >
+                    <span className="chapter-index__still">
+                      <img src={mediaPath(id + '.webp')} alt="" decoding="async" />
+                    </span>
+                    <span className="chapter-index__caption">
+                      <span className="chapter-index__number" aria-hidden="true">0{index + 1}</span>
+                      <span className="chapter-index__name">{label}</span>
+                      <svg className="chapter-index__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M3 13 13 3M4 3h9v9" stroke="currentColor" strokeWidth="1.3" />
+                      </svg>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <a className="chapter-cover" href="#for-lisa" onClick={visitSection}>
+              <img src={mediaPath(graduationPhotos[0].file)} alt="" width="688" height="1032" />
+              <span><small>For Lisa</small><em>Graduation day</em></span>
+              <svg className="cover-arrow" width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 13 13 3M4 3h9v9" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            </a>
+          </div>
           <ChapterTools position={position} bookmark={bookmark} savePlace={savePlace} reading={reading}
-            onReading={onReading} choose={choose} onClose={onClose} />
+            onReading={onReading} choose={choose} visitSection={visitSection} />
         </div>
       )}
     </dialog>,

@@ -339,3 +339,57 @@ img { display: block; }
 .static-captions strong, .static-captions span { display: block; }
 .static-captions span { color: var(--subtle); }
 .static-chapters article > p:not(.scene-eyebrow) { color: var(--subtle); line-height: 1.45; }
+
+.letter-link { gap: .55em; padding: 5px 13px 5px 8px; }
+.letter-photo { width: 24px; height: 30px; object-fit: cover; border: 2px solid #f7efdc; transform: rotate(-7deg); }
+.chapter-strip { display: flex; align-items: center; gap: clamp(4px, 1vw, 16px); }
+.chapter-strip a {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 3px; color: #baafa0; font-size: .77rem;
+}
+.strip-still {
+  display: block; width: 28px; aspect-ratio: 1; flex: none; border-radius: 2px;
+  background: url('/media/chapter-strip.webp') var(--still-position) center / 400% 100%;
+  opacity: .65;
+}
+.chapter-strip a:is(:hover, :focus-visible, [aria-current]) { color: #ffe1a6; }
+.chapter-strip a:is(:hover, :focus-visible, [aria-current]) .strip-still { opacity: 1; }
+.chapter-strip a[aria-current]::before, .chapter-strip a[aria-current]::after {
+  content: ''; position: absolute; bottom: 0; left: 2px; right: 2px; height: 2px; background: #746655;
+}
+.chapter-strip a[aria-current]::after { background: var(--gold); transform-origin: left; transform: scaleX(var(--chapter-progress, 0)); }
+
+.companion-print--graduation .companion-image { height: auto; aspect-ratio: 2 / 3; }
+.companion-print--graduation img { object-fit: contain; }
+.film-surface .companion-print--graduation {
+  --print-w: min(9.6vw, 19cqh); top: 50%; opacity: var(--print-reveal, 0);
+  transform: translateY(calc(var(--print-rise) + 60px * (1 - var(--print-reveal, 0))))
+    rotate(calc(var(--print-tilt) - 9deg * (1 - var(--print-reveal, 0))));
+}
+@media (max-width: 960px) {
+  .chapter-strip .strip-name { display: none; }
+  .chapter-strip a { justify-content: center; width: 42px; }
+}
+@media (max-width: 650px) {
+  .stage-footer .class-year { display: none; }
+  .chapter-strip { gap: 2px; }
+  .chapter-strip a { width: clamp(30px, 9.2vw, 44px); }
+  .strip-still { width: clamp(22px, 6.5vw, 30px); }
+  .letter-photo { width: 18px; height: 23px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .film-surface .companion-print--graduation { --print-w: min(21cqw, 13cqh); top: 35%; }
+}
+@media (max-width: 360px) {
+  .stage-footer .chapter-bars, .stage-footer .foot-separator { display: none; }
+}
+
+[data-scene='notes'] .caption-detail {
+  display: inline-block; max-width: min(33ch, 100%); padding: 9px 15px 11px 22px;
+  color: #303a34; font-size: clamp(14px, 1.15vw, 19px); line-height: 1.55;
+  background:
+    linear-gradient(90deg, transparent 13px, #ac665b85 13px 14px, transparent 14px),
+    repeating-linear-gradient(0deg, transparent 0 calc(1.55em - 1px), #7e938147 calc(1.55em - 1px) 1.55em),
+    #ede8d6;
+  box-shadow: 2px 4px 6px #12100d33; transform: rotate(-1deg); transform-origin: left;
+}
