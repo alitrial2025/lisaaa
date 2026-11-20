@@ -1,134 +1,68 @@
 .endpaper {
-  --endpaper-ink: #302721;
-  --endpaper-serif: 'Instrument Serif', Georgia, serif;
+  --letter-ink: #30251f;
   position: relative;
-  min-height: 100svh;
-  display: flex;
-  isolation: isolate;
-  overflow: hidden;
-  color: var(--endpaper-ink);
-  background: radial-gradient(ellipse at 19% 35%, #f9f0d9 0%, transparent 55%), #f3ecdc;
+  color: var(--letter-ink);
+  background: #f3e9d4;
 }
-.endpaper__inside {
-  position: relative;
-  z-index: 1;
-  width: min(calc(100% - 2 * clamp(22px, 6.4vw, 102px)), 1440px);
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
+.endpaper::after { content: ''; display: block; height: 72svh; }
+.graduation-stage {
+  position: sticky; top: 0; min-height: 100svh; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+  background: radial-gradient(ellipse at 19% 6%, #d6e3df, transparent 51%),
+    radial-gradient(ellipse at 91% 83%, #e9ceb2, transparent 54%), #f6edda;
 }
-.endpaper__spread {
-  flex: 1;
-  min-height: clamp(565px, 90svh, 900px);
-  padding-block: clamp(75px, 11svh, 140px);
-  display: grid;
-  grid-template-columns: 1.16fr 1fr;
-  grid-template-areas: 'album letter';
-  align-items: center;
-  gap: clamp(38px, 7vw, 122px);
+.graduation-spread, .endpaper__footer { width: min(calc(100% - var(--edge) * 2), 1460px); margin-inline: auto; }
+.graduation-spread {
+  flex: 1; display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(24px, 6vw, 112px);
+  align-items: center; padding-block: clamp(25px, 5svh, 72px); position: relative; z-index: 1;
 }
-.endpaper__letter { grid-area: letter; position: relative; z-index: 1; }
-.endpaper__kicker, .endpaper__footer {
-  font-family: 'Space Grotesk Variable', Arial, sans-serif;
-  font-size: .68rem;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: .15em;
-  text-transform: uppercase;
+.graduation-album { min-width: 0; }
+.graduation-prints { position: relative; height: min(67svh, 49vw, 750px); isolation: isolate; }
+.graduation-print {
+  position: absolute; top: 50%; left: 50%; translate: -50% -50%; margin: 0;
+  width: min(64%, 36svh, 390px); padding: clamp(5px, .7vw, 11px); padding-bottom: 0;
+  background: #fffaf0; border: 1px solid #705c4029;
+  box-shadow: 0 2px 3px #4b341520, 3px 12px 23px -9px #47331c66;
 }
-.endpaper__kicker { display: flex; align-items: center; gap: 12px; margin: 0 0 19px; }
-.endpaper__kicker::before { content: ''; width: 29px; height: 1px; background: #937044; }
-.endpaper h2 {
-  font-family: var(--endpaper-serif);
-  font-size: clamp(74px, min(8.9vw, 15.8svh), 155px);
-  letter-spacing: -.047em;
-  line-height: .88;
-  font-weight: 400;
-  margin: 0 0 .25em -.03em;
+.graduation-print img { display: block; width: 100%; height: auto; }
+.graduation-print figcaption { padding: .36em .12em .48em; font: italic clamp(16px, 1.6vw, 25px)/1.08 var(--serif); }
+.graduation-selector { display: flex; justify-content: center; gap: 4px; margin-top: 12px; }
+.graduation-selector button {
+  cursor: pointer; border: 1px solid transparent; border-radius: 30px; padding: 8px 14px; min-height: 39px;
+  background: transparent; color: #604d3d; font: 500 .79rem/1.2 var(--sans);
 }
-.endpaper h2 em { color: #85411e; font-weight: 400; }
-.endpaper__message {
-  max-width: 34ch;
-  margin: 0;
-  line-height: 1.6;
-  font-size: clamp(15px, 1.22vw, 20px);
-  color: #564a3e;
-}
-.endpaper__signoff {
-  font-family: var(--endpaper-serif);
-  font-size: clamp(28px, 2.7vw, 42px);
-  line-height: 1.1;
-  font-style: italic;
-  margin: .65em 0 0;
-}
-.endpaper__album {
-  grid-area: album;
-  position: relative;
-  width: 100%;
-  max-width: 670px;
-  aspect-ratio: 1.2;
-  isolation: isolate;
-}
-.endpaper__print {
-  position: absolute;
-  width: 54%;
-  padding: 2% 2% 0;
-  margin: 0;
-  background: #fffaf0;
-  border: 1px solid #58452527;
-  box-shadow: 0 1px 2px #33271922, 2px 10px 18px -8px #49331855;
-  transform-origin: 50% 65%;
-}
-.endpaper__print figcaption {
-  padding: .42em .08em .58em;
-  font: italic clamp(17px, 1.7vw, 30px)/1.1 var(--endpaper-serif);
-  color: #514232;
-}
-.endpaper__photo { position: relative; overflow: hidden; aspect-ratio: .79; }
-.endpaper__photo img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; display: block; }
-.endpaper__print--study { top: 1%; left: 4%; }
-.endpaper__print--study .endpaper__photo { background: radial-gradient(ellipse at 55% 20%, #e3d5ab, #b09a73); }
-.endpaper__print--smile { width: 51%; top: 31%; right: 0; }
-.endpaper__print--smile .endpaper__photo { aspect-ratio: .91; background: radial-gradient(ellipse at 35% 17%, #e1e7da, #a7c0b2); }
-.endpaper__print--smile img { width: 108%; max-width: none; object-fit: cover; object-position: center 12%; }
+.graduation-selector button[aria-pressed='true'] { border-color: #715a3d75; color: #31251d; background: #fff9ed7a; }
+.graduation-selector button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.endpaper__kicker, .endpaper__footer { font: 500 .68rem/1.4 var(--mono); letter-spacing: .13em; text-transform: uppercase; }
+.endpaper__kicker { display: flex; align-items: center; gap: 9px; color: #6b4a35; margin-bottom: 21px; }
+.endpaper__kicker::before { content: ''; width: 30px; height: 1px; background: #9f7151; }
+.endpaper h2 { font: 400 clamp(72px, min(10vw, 16svh), 155px)/.87 var(--serif); letter-spacing: -.045em; margin: 0 0 .24em -.03em; }
+.endpaper h2 em { color: #8b4326; }
+.endpaper__message { max-width: 34ch; color: #594b3d; font-size: clamp(15px, 1.22vw, 20px); line-height: 1.55; }
+.endpaper__signoff { margin-top: .65em; font: italic clamp(28px, 2.65vw, 40px)/1.1 var(--serif); }
 .endpaper__footer {
-  min-height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid #594b343c;
-  gap: 1rem;
+  position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  min-height: 60px; border-top: 1px solid #72604b44;
 }
-.endpaper__footer a {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  color: inherit;
-  text-decoration: none;
-}
-.endpaper__footer a:hover { text-decoration: underline; text-underline-offset: 5px; }
-.endpaper__footer a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-
+.endpaper__footer a { display: inline-flex; align-items: center; min-height: 44px; }
+.endpaper__footer a:hover { text-decoration: underline; text-underline-offset: 4px; }
 @media (max-width: 740px) {
-  .endpaper__spread {
-    grid-template-columns: 1fr;
-    grid-template-areas: 'letter' 'album';
-    padding-block: 54px 48px;
-    gap: 34px;
-    min-height: 0;
-  }
-  .endpaper__letter { width: min(100%, 520px); margin-inline: auto; }
-  .endpaper__kicker { margin-bottom: 18px; }
-  .endpaper h2 { font-size: clamp(72px, 15vw, 108px); }
+  .graduation-spread { grid-template-columns: 1fr; align-content: center; gap: 17px; padding-block: 18px 26px; }
+  .graduation-prints { height: clamp(215px, 39svh, 415px); }
+  .graduation-print { width: min(50%, 21svh, 240px); }
+  .graduation-selector { margin-top: 0; }
+  .endpaper__letter { width: min(100%, 490px); margin-inline: auto; }
+  .endpaper__kicker { margin-bottom: 11px; font-size: .61rem; }
+  .endpaper h2 { font-size: clamp(49px, 10.6vw, 74px); line-height: .98; margin-bottom: 9px; }
   .endpaper h2 br { display: none; }
   .endpaper h2 em::before { content: ' '; }
-  .endpaper__album { width: min(100%, 480px); justify-self: center; }
-  .endpaper__print figcaption { font-size: clamp(18px, 4.1vw, 27px); }
-  .endpaper__footer { min-height: 61px; font-size: .62rem; }
+  .endpaper__message { font-size: 14px; }
+  .endpaper__signoff { font-size: 25px; margin-top: 8px; }
+  .endpaper__footer { font-size: .58rem; min-height: 50px; }
 }
-
-@media (max-width: 440px) {
-  .endpaper h2 br { display: initial; }
-  .endpaper h2 em::before { content: none; }
+.endpaper[data-static]::after { display: none; }
+.endpaper[data-static] .graduation-stage { position: relative; }
+@media (max-height: 660px) {
+  .endpaper::after { display: none; }
+  .graduation-stage { position: relative; }
 }

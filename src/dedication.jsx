@@ -1,16 +1,67 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { m, useInView, useScroll, useTransform } from 'motion/react';
+import { m, useInView, useMotionValue, useMotionValueEvent, useScroll, useTransform } from 'motion/react';
 import { Celebration } from './celebration.jsx';
-import { PortraitImage } from './portraits.jsx';
+import { graduationPhotos } from './graduation-photos.js';
+import { mediaPath } from './chapters.js';
 import './dedication.css';
+
+function GraduationPrint({ photo, index, progress }) {
+  // Separate the prints before changing their stacking order.
+  const stops = [0, .48, 1];
+  const x = useTransform(progress, stops, index ? ['35%', '52%', '17%'] : ['-12%', '-46%', '-34%']);
+  const rotate = useTransform(progress, stops, index ? [7, 9, 2] : [-3, -8, -9]);
+  const scale = useTransform(progress, stops, index ? [.83, .84, 1] : [1, .84, .80]);
+  const zIndex = useTransform(progress, value => Number(index === (value < .48 ? 0 : 1)) + 1);
+  return (
+    <m.figure className="graduation-print" style={{ x, rotate, scale, zIndex }}>
+      <img src={mediaPath(photo.file)} width="688" height="1032" loading="lazy" decoding="async" alt={photo.alt} />
+      <figcaption>{photo.title}</figcaption>
+    </m.figure>
+  );
+}
 
 export function Dedication({ reducedMotion }) {
   const section = useRef(null);
+  const stage = useRef(null);
   const signoff = useRef(null);
   const celebrated = useRef(false);
   const signoffInView = useInView(signoff, { amount: .7, margin: '0px 0px -30px 0px' });
   const [confetti, setConfetti] = useState(false);
   const finishConfetti = useCallback(() => setConfetti(false), []);
+  const progress = useMotionValue(0);
+  const { scrollYProgress } = useScroll({ target: section, offset: ['start start', 'end end'] });
+  const [selected, setSelected] = useState(0);
+  const active = useRef(0);
+  useMotionValueEvent(progress, 'change', value => {
+    const next = value < .48 ? 0 : 1;
+    if (next !== active.current) {
+      active.current = next;
+      setSelected(next);
+    }
+  });
+
+  useEffect(() => {
+    const short = window.matchMedia('(max-height: 660px)');
+    const sync = () => {
+      if (!reducedMotion && !short.matches) progress.set(scrollYProgress.get());
+    };
+    sync();
+    const unsubscribe = scrollYProgress.on('change', sync);
+    short.addEventListener('change', sync);
+    return () => { unsubscribe(); short.removeEventListener('change', sync); };
+  }, [progress, reducedMotion, scrollYProgress]);
+
+  function choosePhoto(index) {
+    const distance = section.current.offsetHeight - stage.current.offsetHeight;
+    if (reducedMotion || distance < 2) {
+      progress.set(index);
+      return;
+    }
+    window.scrollTo({
+      top: window.scrollY + section.current.getBoundingClientRect().top + distance * index,
+      behavior: 'smooth',
+    });
+  }
 
   useEffect(() => {
     if (reducedMotion || !signoffInView || celebrated.current) return;
@@ -22,61 +73,39 @@ export function Dedication({ reducedMotion }) {
     }, 190);
     return () => window.clearTimeout(timer);
   }, [reducedMotion, signoffInView]);
-  const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end end'] });
-  const rearY = useTransform(scrollYProgress, [0, 1], [54, 0]);
-  const frontY = useTransform(scrollYProgress, [0, 1], [94, 0]);
-  const rearTilt = useTransform(scrollYProgress, [0, 1], [-13, -8]);
-  const frontTilt = useTransform(scrollYProgress, [0, 1], [12, 7]);
-  const letterMotion = reducedMotion ? {} : {
-    initial: { opacity: 0, y: 18 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true, amount: 0.13 },
-    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
-  };
 
   return (
-    <section id="for-lisa" className="endpaper" ref={section} aria-labelledby="dedication-title">
-      {!reducedMotion && confetti && <Celebration kind="confetti" onFinish={finishConfetti} />}
-      <div className="endpaper__inside">
-        <div className="endpaper__spread">
-          <m.div className="endpaper__letter" {...letterMotion}>
-            <p className="endpaper__kicker">A dedication</p>
+    <section id="for-lisa" ref={section} className="endpaper" data-static={reducedMotion || undefined} aria-labelledby="dedication-title">
+      <div className="graduation-stage" ref={stage}>
+        {!reducedMotion && confetti && <Celebration kind="confetti" onFinish={finishConfetti} />}
+        <div className="graduation-spread">
+          <div className="graduation-album">
+            <div className="graduation-prints">
+              {graduationPhotos.map((photo, index) => (
+                <GraduationPrint key={photo.file} photo={photo} index={index} progress={progress} />
+              ))}
+            </div>
+            <div className="graduation-selector" role="group" aria-label="Graduation photos">
+              {['The portrait', 'The candid'].map((label, index) => (
+                <button key={label} type="button" aria-pressed={selected === index} onClick={() => choosePhoto(index)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="endpaper__letter">
+            <p className="endpaper__kicker">Graduation day <span aria-hidden="true">/</span> Class of 2026</p>
             <h2 id="dedication-title">Here’s to<br /><em>you, Lisa.</em></h2>
             <p className="endpaper__message">
               For the pages you filled, the friends who shared them, and the smile you carried
               through it all. We’re so proud of you.
             </p>
             <p className="endpaper__signoff" ref={signoff}>Happy graduation.</p>
-          </m.div>
-          <div className="endpaper__album">
-            <m.figure
-              className="endpaper__print endpaper__print--study"
-              style={reducedMotion ? { rotate: -8 } : { y: rearY, rotate: rearTilt }}
-            >
-              <div className="endpaper__photo">
-                <PortraitImage name="reading" sizes="(max-width: 740px) 51vw, 27vw" />
-              </div>
-              <figcaption>Study days</figcaption>
-            </m.figure>
-            <m.figure
-              className="endpaper__print endpaper__print--smile"
-              style={reducedMotion ? { rotate: 7 } : { y: frontY, rotate: frontTilt }}
-            >
-              <div className="endpaper__photo">
-                <PortraitImage name="smiling" sizes="(max-width: 740px) 50vw, 26vw" />
-              </div>
-              <figcaption>Between pages</figcaption>
-            </m.figure>
           </div>
         </div>
         <footer className="endpaper__footer">
           <a href="#keepsakes">Explore the keepsakes <span aria-hidden="true">↓</span></a>
-          <a href="#top">
-            Back to the opening
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none">
-              <path d="M8 13V3m-4 4 4-4 4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </a>
+          <a href="#top">Back to the opening <span aria-hidden="true">↑</span></a>
         </footer>
       </div>
     </section>

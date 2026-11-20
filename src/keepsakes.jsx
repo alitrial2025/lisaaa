@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { mediaPath, timeline } from './chapters.js';
+import { graduationPhotos } from './graduation-photos.js';
 import manifest from './frame-atlas.json';
 import { overviewAt, overviewColumns } from './overview.js';
 import './keepsakes.css';
 
+const betweenClasses = { file: 'lisa-smiling.webp', small: 'lisa-smiling-420.webp', title: 'Between classes', alt: 'Lisa smiling at her phone in a blue T-shirt.' };
+const postcardPhotos = [...graduationPhotos, betweenClasses];
 const photos = [
-  { file: 'lisa-smiling.webp', small: 'lisa-smiling-420.webp', title: 'Between classes', alt: 'Lisa smiling at her phone in a blue T-shirt.' },
+  ...postcardPhotos,
   { file: 'lisa-reading.webp', small: 'lisa-reading-420.webp', title: 'Study days', alt: 'Lisa reading notes in her orange hoodie.' },
   ...timeline.map(scene => ({ file: scene.id + '.webp', title: scene.label, alt: scene.description })),
 ];
@@ -94,6 +97,7 @@ function MomentSheet({ go }) {
 }
 
 function Postcard() {
+  const [portrait, setPortrait] = useState(postcardPhotos[0]);
   const [message, setMessage] = useState('');
   const [copy, setCopy] = useState('');
   const [busy, setBusy] = useState(false);
@@ -104,7 +108,7 @@ function Postcard() {
     setCopy('');
     try {
       const { exportPostcard } = await import('./postcard.js');
-      await exportPostcard(message.trim());
+      await exportPostcard(message.trim(), portrait.file);
       setCopy('Postcard ready to save.');
     } catch {
       setCopy('The postcard could not be created. Try again.');
@@ -115,9 +119,19 @@ function Postcard() {
 
   return (
     <div className="postcard-panel">
-      <div className="postcard-preview">
-        <div><span>Class of 2026</span><p>For <em>Lisa.</em></p><small>{message.trim() || 'Happy graduation.'}</small></div>
-        <img src={mediaPath('lisa-smiling-420.webp')} alt="" loading="lazy" />
+      <div>
+        <div className="postcard-preview">
+          <div><span>Class of 2026</span><p>For <em>Lisa.</em></p><small>{message.trim() || 'Happy graduation.'}</small></div>
+          <img src={mediaPath(portrait.small ?? portrait.file)} alt={portrait.alt} loading="lazy" />
+        </div>
+        <div className="postcard-photos" role="group" aria-label="Postcard photograph">
+          {postcardPhotos.map(photo => (
+            <button key={photo.file} type="button" aria-pressed={photo === portrait} aria-label={photo.title}
+              onClick={() => { setPortrait(photo); setCopy(''); }}>
+              <img src={mediaPath(photo.small ?? photo.file)} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
       </div>
       <form onSubmit={download}>
         <label htmlFor="postcard-message">Add your own message</label>

@@ -18,13 +18,13 @@ function lineWrap(context, value, maxWidth) {
   return lines;
 }
 
-export async function exportPostcard(message) {
+export async function exportPostcard(message, photoFile = 'lisa-smiling.webp') {
   const canvas = document.createElement('canvas');
   canvas.width = 1500;
   canvas.height = 1000;
   const context = canvas.getContext('2d');
   const photo = new Image();
-  photo.src = mediaPath('lisa-smiling.webp');
+  photo.src = mediaPath(photoFile);
   await Promise.all([
     photo.decode(),
     document.fonts.load('italic 180px "Instrument Serif"'),

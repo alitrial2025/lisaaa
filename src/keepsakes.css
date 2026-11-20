@@ -10,7 +10,7 @@
 .keepsake-nav button[aria-pressed='true'], .keepsake-nav button:hover, .postcard-panel form button {
   background: #332820; border-color: #332820; color: #fff3da;
 }
-.keepsake-gallery { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.7vw, 23px); }
+.keepsake-gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, 1.7vw, 23px); }
 .keepsake-photo, .moment-frames button {
   min-width: 0; background: transparent; color: inherit; border: 0; padding: 0; cursor: pointer;
   font: 400 clamp(18px, 2vw, 30px)/1.08 var(--serif); text-align: left;
@@ -65,8 +65,13 @@
 .film-notes li { margin-top: 11px; }
 .film-notes button { padding: 0; border: 0; background: none; color: #7d3617; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 750px) {
-  .keepsake-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 8px; }
+  .keepsake-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 8px; }
   .moment-frames { grid-template-columns: repeat(3, minmax(0, 130px)); }
   .postcard-panel { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .keepsake-photo img { transition: none; } }
+
+.postcard-photos { display: flex; gap: 8px; margin-top: 12px; }
+.postcard-photos button { background: #eadfc9; padding: 2px; border: 2px solid transparent; cursor: pointer; border-radius: 3px; }
+.postcard-photos button[aria-pressed='true'] { border-color: #814725; }
+.postcard-photos img { display: block; width: 38px; height: 46px; object-fit: cover; object-position: center 32%; }
