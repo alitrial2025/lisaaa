@@ -329,6 +329,7 @@ img { display: block; }
   color-scheme: light;
   color: #302721;
   background: #eee4d0;
+  min-height: 100svh;
   padding: clamp(42px, 7vw, 100px) var(--edge) clamp(55px, 7.5vw, 112px);
   scroll-margin-top: 0;
 }

@@ -26,9 +26,7 @@ export function SoundControl({ staticFilm }) {
       let cue = null;
       if (!document.hidden) {
         const height = window.innerHeight;
-        const gallery = keepsakes.getBoundingClientRect();
-        const galleryThreshold = location.hash === '#keepsakes' ? height - 64 : height / 2;
-        if (gallery.top <= galleryThreshold || gallery.bottom <= height + 2) cue = 'keepsakes';
+        if (keepsakes.getBoundingClientRect().top <= height / 2) cue = 'keepsakes';
         else if (dedication.getBoundingClientRect().top <= height / 2) cue = 'dedication';
         else cue = placeAtScroll().id;
       }
