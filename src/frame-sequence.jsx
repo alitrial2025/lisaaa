@@ -17,6 +17,7 @@ export function createFrameCache() {
   function release(sheet) {
     sheet.controller.abort();
     sheet.bitmap?.close();
+    sheet.bitmap = null;
   }
 
   function get(clip, index, priority) {
@@ -221,9 +222,9 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
       pendingSheet = sheet;
       wantedSheet = index;
       if (sheet.bitmap) return;
-      sheet.pending.then((bitmap) => {
+      sheet.pending.then(() => {
         if (!active || pendingSheet !== sheet) return;
-        if (bitmap) {
+        if (sheet.bitmap) {
           if (!rapid) drawExact();
         }
         else if (sheet.controller.signal.aborted) requestSheet(index);
@@ -237,7 +238,7 @@ export const FrameSequence = memo(function FrameSequence({ chapter, visible, pla
     function settle() {
       rapid = false;
       const index = Math.floor(lastFrame / framesPerSheet);
-      if (index !== wantedSheet) requestSheet(index);
+      if (index !== wantedSheet || pendingSheet?.controller.signal.aborted) requestSheet(index);
       if (pendingSheet.bitmap) drawExact();
       else if (Math.abs(lastFrame - lastPaint) >= 5) {
         const entry = cache.overview(id);
