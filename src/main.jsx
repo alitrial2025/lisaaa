@@ -12,6 +12,7 @@ import { createFrameCache, FrameSequence } from './frame-sequence.jsx';
 import { Celebration } from './celebration.jsx';
 import { ChapterIndex } from './chapter-index.jsx';
 import { Dedication } from './dedication.jsx';
+import { SoundControl } from './sound-control.jsx';
 import { chapterPosition, filmHash, handoff, placeAtScroll, readLocal, readPlace, sceneAt, scrollToPlace, writeLocal } from './film-navigation.js';
 import './styles.css';
 
@@ -54,9 +55,9 @@ function Masthead({ openIndex }) {
         <button className="index-trigger" type="button" onClick={openIndex} aria-haspopup="dialog" aria-controls="chapter-index">
           <span className="grid-icon" aria-hidden="true" /> Chapters
         </button>
-        <a className="letter-link" href="#for-lisa">
+        <a className="letter-link" href="#for-lisa" aria-label="For Lisa">
           <img className="letter-photo" src={mediaPath(graduationPhotos[0].thumbnail)} alt="" width="24" height="30" />
-          For Lisa <Arrow direction="diagonal" />
+          <span>For Lisa</span><Arrow direction="diagonal" />
         </a>
       </nav>
     </header>
@@ -324,7 +325,10 @@ function App() {
   const go = useCallback((place) => {
     const hash = filmHash(place);
     if (window.location.hash !== hash) window.history.pushState(null, '', hash);
-    requestAnimationFrame(() => scrollToPlace(place));
+    requestAnimationFrame(() => {
+      scrollToPlace(place);
+      window.dispatchEvent(new Event('film-navigate'));
+    });
   }, []);
   const openIndex = useCallback(() => {
     setPosition(placeAtScroll());
@@ -390,6 +394,7 @@ function App() {
         <Dedication reducedMotion={staticFilm} />
         <KeepsakeSection go={go} />
       </main>
+      <SoundControl staticFilm={staticFilm} />
       <ChapterIndex open={indexOpen} onClose={closeIndex} onSelect={go} position={position}
         bookmark={bookmark} savePlace={savePlace} reading={staticFilm} onReading={reducedMotion ? null : toggleReading} />
     </LazyMotion>

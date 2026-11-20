@@ -9,6 +9,7 @@
   --sans: 'Space Grotesk Variable', Arial, sans-serif;
   --mono: 'Courier New', monospace;
   --edge: clamp(22px, 5.2vw, 106px);
+  --head: clamp(58px, 8.6svh, 90px);
   font-family: var(--sans);
   font-synthesis: none;
   color: var(--paper);
@@ -27,7 +28,6 @@ img { display: block; }
 
 .film { position: relative; height: 745svh; }
 .film-stage {
-  --head: clamp(58px, 8.6svh, 90px);
   --foot: clamp(54px, 8.1svh, 88px);
   position: sticky; top: 0; height: 100svh; isolation: isolate; overflow: hidden; background: var(--night);
 }
@@ -224,7 +224,8 @@ img { display: block; }
   .companion-print { --print-w: 10vw; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  .film-stage { --head: 44px; --foot: 40px; }
+  :root { --head: 44px; }
+  .film-stage { --foot: 40px; }
   .wordmark { font-size: 22px; }
   .archive-mark { width: 24px; }
   .letter-link { padding: 4px 11px; }
@@ -237,7 +238,8 @@ img { display: block; }
   .companion-print { --print-w: 20cqh; top: 60%; }
 }
 @media (max-aspect-ratio: 1/1) {
-  .film-stage { --head: clamp(56px, 7.6svh, 77px); --foot: clamp(48px, 7.2svh, 69px); }
+  :root { --head: clamp(56px, 7.6svh, 77px); }
+  .film-stage { --foot: clamp(48px, 7.2svh, 69px); }
   .film-surface, .film-surface[data-side='left'], .film-surface[data-scene='writing'] {
     --film-x: 62%; --film-y: 32%; --shot-height: min(60cqh, 92cqw);
     --rail: clamp(10px, 2.3vw, 16px); --copy-side: var(--edge);

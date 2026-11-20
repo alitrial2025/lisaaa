@@ -15,8 +15,12 @@ export function sceneAt(position) {
 export function placeAtScroll() {
   const film = document.querySelector('.film');
   if (!film) {
-    const articles = Array.from(document.querySelectorAll('.static-chapters article'));
-    const chapter = articles.findLast(article => article.getBoundingClientRect().top <= window.innerHeight / 2);
+    const articles = [...document.querySelectorAll('.static-chapters article')]
+      .map(article => ({ id: article.id, top: article.getBoundingClientRect().top }));
+    const rowTop = articles.findLast(article => article.top <= window.innerHeight / 2)?.top;
+    const row = articles.filter(article => article.top === rowTop);
+    const linked = readPlace(window.location.hash);
+    const chapter = row.find(article => article.id === linked?.id) ?? row[0];
     return { id: chapter?.id ?? timeline[0].id };
   }
   const distance = film.offsetHeight - film.querySelector('.film-stage').offsetHeight;
